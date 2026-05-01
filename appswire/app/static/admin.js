@@ -66,6 +66,8 @@ function addActionRow(opts = {}) {
       </select>
       <input type="text" name="action_label[]" class="action-label-input"
              placeholder="Текст кнопки" value="${esc(label)}">
+    </div>
+    <div class="action-row-controls">
       <label class="primary-wrap" title="Основная кнопка">
         <input type="radio" name="primary_index" class="primary-radio"
                value="${idx}"${isPrimary ? ' checked' : ''}>
