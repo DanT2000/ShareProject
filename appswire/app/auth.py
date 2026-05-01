@@ -182,3 +182,7 @@ def is_admin_request(request: Request, db: Session) -> bool:
 def check_admin(request: Request, db: Session):
     if not is_admin_request(request, db):
         raise HTTPException(status_code=403, detail="Not authorized")
+    
+
+def get_admin(db: Session) -> AdminUser | None:
+    return get_admin_user(db)
