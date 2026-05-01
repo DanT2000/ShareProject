@@ -10,14 +10,25 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
-function q(sel, ctx) { return (ctx || document).querySelector(sel); }
+function q(sel, ctx)  { return (ctx || document).querySelector(sel); }
 function qa(sel, ctx) { return Array.from((ctx || document).querySelectorAll(sel)); }
 
-// ── Textarea auto-resize ──────────────────────────────────────────────────────
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+
+function switchTab(name) {
+  qa('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  qa('.tab-panel').forEach(p => { p.hidden = p.id !== `tab-${name}`; });
+}
+
+qa('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+// ── Textarea auto-resize (description only, capped by CSS max-height) ────────
 
 function autoResize(ta) {
   ta.style.height = 'auto';
-  ta.style.height = ta.scrollHeight + 'px';
+  ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
 }
 
 qa('textarea.auto-resize').forEach(ta => {
@@ -25,7 +36,7 @@ qa('textarea.auto-resize').forEach(ta => {
   autoResize(ta);
 });
 
-// ── Image mode switching ──────────────────────────────────────────────────────
+// ── Image mode (pill radios) ──────────────────────────────────────────────────
 
 const imgUrlField    = q('#image-url-field');
 const imgUploadField = q('#image-upload-field');
@@ -40,23 +51,29 @@ qa('input[name="image_mode"]').forEach(r => {
   if (r.checked) applyImageMode(r.value);
 });
 
-// ── Action rows ───────────────────────────────────────────────────────────────
+// ── Actions counter ───────────────────────────────────────────────────────────
 
 const actionsContainer = q('#actions-container');
+const actionsCountEl   = q('#actions-count');
+const actionsEmptyHint = q('#actions-empty-hint');
 let rowCount = 0;
 
+function updateActionsCount() {
+  const n = actionsContainer ? actionsContainer.querySelectorAll('.action-row').length : 0;
+  if (actionsCountEl)   actionsCountEl.textContent = n === 0 ? '0 действий' : `${n} действи${n === 1 ? 'е' : n < 5 ? 'я' : 'й'}`;
+  if (actionsEmptyHint) actionsEmptyHint.style.display = n === 0 ? 'block' : 'none';
+}
+
+updateActionsCount();
+
+// ── Add action row ────────────────────────────────────────────────────────────
+
 function addActionRow(opts = {}) {
-  const idx = rowCount++;
+  const idx  = rowCount++;
   const kind = opts.kind || 'download';
-  const label = opts.label || '';
-  const urlVal = opts.url || '';
-  const existingFile = opts.existingFile || '';
-  const existingFileName = opts.existingFileName || existingFile.split('/').pop();
-  const isPrimary = !!opts.isPrimary;
 
   const row = document.createElement('div');
   row.className = 'action-row';
-  row.dataset.existingFile = existingFile;
 
   row.innerHTML = `
     <div class="action-row-top">
@@ -65,116 +82,115 @@ function addActionRow(opts = {}) {
         <option value="link"${kind === 'link' ? ' selected' : ''}>Link</option>
       </select>
       <input type="text" name="action_label[]" class="action-label-input"
-             placeholder="Текст кнопки" value="${esc(label)}">
+             placeholder="Текст кнопки" value="${esc(opts.label || '')}">
     </div>
     <div class="action-row-controls">
-      <label class="primary-wrap" title="Основная кнопка">
+      <label class="primary-wrap">
         <input type="radio" name="primary_index" class="primary-radio"
-               value="${idx}"${isPrimary ? ' checked' : ''}>
+               value="${idx}"${opts.isPrimary ? ' checked' : ''}>
         <span>Primary</span>
       </label>
       <button type="button" class="btn-remove-action" title="Удалить">×</button>
     </div>
-    <div class="action-url-field action-sub" style="${kind !== 'link' ? 'display:none' : ''}">
-      <input type="url" name="action_url[]" placeholder="https://..." value="${esc(urlVal)}">
+    <div class="action-url-field" style="${kind !== 'link' ? 'display:none' : ''}">
+      <input type="url" name="action_url[]" placeholder="https://..." value="${esc(opts.url || '')}">
     </div>
-    <div class="action-file-field action-sub" style="${kind === 'link' ? 'display:none' : ''}">
-      <input type="hidden" name="action_existing_file[]" value="${esc(existingFile)}">
-      <div class="existing-file-row" style="${existingFile ? '' : 'display:none'}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+    <div class="action-file-field" style="${kind === 'link' ? 'display:none' : ''}">
+      <input type="hidden" name="action_existing_file[]" value="${esc(opts.existingFile || '')}">
+      <div class="existing-file-row" style="${opts.existingFile ? '' : 'display:none'}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
           <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
           <polyline points="13 2 13 9 20 9"/>
         </svg>
-        <span class="existing-file-name">${esc(existingFileName)}</span>
+        <span class="existing-file-name">${esc(opts.existingFileName || (opts.existingFile || '').split('/').pop())}</span>
         <label class="clear-file-label">
           <input type="checkbox" class="clear-file-checkbox" name="action_clear_file" value="${idx}">
-          Удалить файл
+          Удалить
         </label>
       </div>
       <input type="file" class="action-file-input">
     </div>
   `;
 
-  // Kind toggle
-  const kindSel = row.querySelector('.action-kind-select');
-  const urlField = row.querySelector('.action-url-field');
+  const kindSel   = row.querySelector('.action-kind-select');
+  const urlField  = row.querySelector('.action-url-field');
   const fileField = row.querySelector('.action-file-field');
 
   kindSel.addEventListener('change', () => {
-    const v = kindSel.value;
-    urlField.style.display  = v === 'link'     ? '' : 'none';
-    fileField.style.display = v === 'download' ? '' : 'none';
+    urlField.style.display  = kindSel.value === 'link'     ? '' : 'none';
+    fileField.style.display = kindSel.value === 'download' ? '' : 'none';
   });
 
-  // Remove
-  row.querySelector('.btn-remove-action').addEventListener('click', () => row.remove());
+  row.querySelector('.btn-remove-action').addEventListener('click', () => {
+    row.remove();
+    updateActionsCount();
+  });
 
   actionsContainer.appendChild(row);
+  updateActionsCount();
   return row;
 }
 
-q('#add-action-btn')?.addEventListener('click', () => addActionRow());
+q('#add-action-btn')?.addEventListener('click', () => {
+  addActionRow();
+  // Switch to actions tab if not already there
+  switchTab('actions');
+});
 
-// ── Before submit: renumber file inputs & radios ──────────────────────────────
+// ── Before submit: renumber indices ──────────────────────────────────────────
 
 q('#project-form')?.addEventListener('submit', function () {
   qa('.action-row', actionsContainer).forEach((row, i) => {
     const radio = row.querySelector('.primary-radio');
     if (radio) radio.value = i;
-    const clearCb = row.querySelector('.clear-file-checkbox');
-    if (clearCb) clearCb.value = i;
-    const fileInput = row.querySelector('.action-file-input');
-    if (fileInput) fileInput.name = `action_file_${i}`;
+    const cb = row.querySelector('.clear-file-checkbox');
+    if (cb) cb.value = i;
+    const fi = row.querySelector('.action-file-input');
+    if (fi) fi.name = `action_file_${i}`;
   });
-  // If no radio is checked, inject a hidden -1 so the field is always present
-  const checkedRadio = q('input.primary-radio:checked', actionsContainer);
-  if (!checkedRadio) {
-    let fallback = q('#primary_index_hidden');
-    if (!fallback) {
-      fallback = document.createElement('input');
-      fallback.type = 'hidden';
-      fallback.name = 'primary_index';
-      fallback.id = 'primary_index_hidden';
-      this.appendChild(fallback);
+  const checked = q('input.primary-radio:checked', actionsContainer);
+  if (!checked) {
+    let hid = q('#primary_index_hidden');
+    if (!hid) {
+      hid = document.createElement('input');
+      hid.type = 'hidden'; hid.name = 'primary_index'; hid.id = 'primary_index_hidden';
+      this.appendChild(hid);
     }
-    fallback.value = '-1';
+    hid.value = '-1';
   } else {
     const old = q('#primary_index_hidden');
     if (old) old.remove();
   }
 });
 
-// ── New project button ────────────────────────────────────────────────────────
+// ── New project ───────────────────────────────────────────────────────────────
 
 q('#new-project-btn')?.addEventListener('click', () => {
-  const form = q('#project-form');
   q('#project_id').value = '0';
   q('#form-title').textContent = 'Новый проект';
-  q('#submit-btn').textContent = 'Создать';
+  q('#submit-btn').textContent = 'Создать проект';
 
-  // Reset text fields manually
   q('#f-title').value = '';
-  q('#f-desc').value = '';
-  q('#f-ver').value = '1.0.0';
-  q('#f-sort').value = '0';
+  q('#f-desc').value  = '';
+  q('#f-ver').value   = '1.0.0';
+  q('#f-sort').value  = '0';
   q('#f-pub').checked = true;
-  q('#f-md').value = '';
-  if (q('#image_url_input')) q('#image_url_input').value = '';
-  if (q('#image_file')) q('#image_file').value = '';
-  if (q('#existing-image-wrap')) q('#existing-image-wrap').style.display = 'none';
+  q('#f-md').value    = '';
 
-  // Reset image mode
+  const urlInp = q('#image_url_input');
+  if (urlInp) urlInp.value = '';
+  const existImg = q('#existing-image-wrap');
+  if (existImg) existImg.style.display = 'none';
+
   const noneRadio = q('input[name="image_mode"][value="none"]');
   if (noneRadio) { noneRadio.checked = true; applyImageMode('none'); }
 
-  // Clear actions
   actionsContainer.innerHTML = '';
   rowCount = 0;
+  updateActionsCount();
 
-  // Resize textareas
   qa('textarea.auto-resize').forEach(autoResize);
-
-  // Scroll to form top
+  switchTab('basic');
   q('.dash-sidebar')?.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
@@ -188,48 +204,43 @@ qa('.delete-project-form').forEach(form => {
   });
 });
 
-// ── Populate form if editing (EDIT_PROJECT from template) ────────────────────
+// ── Populate form for edit (EDIT_PROJECT comes from template) ─────────────────
 
 if (typeof EDIT_PROJECT !== 'undefined' && EDIT_PROJECT) {
   const p = EDIT_PROJECT;
 
-  q('#project_id').value   = p.id;
-  q('#f-title').value      = p.title;
-  q('#f-desc').value       = p.description;
-  q('#f-ver').value        = p.version;
-  q('#f-sort').value       = p.sort_order;
-  q('#f-pub').checked      = p.is_published;
-  q('#f-md').value         = p.instruction_md;
-  q('#form-title').textContent = 'Редактировать';
-  q('#submit-btn').textContent = 'Сохранить';
+  q('#project_id').value = p.id;
+  q('#f-title').value    = p.title;
+  q('#f-desc').value     = p.description;
+  q('#f-ver').value      = p.version;
+  q('#f-sort').value     = p.sort_order;
+  q('#f-pub').checked    = p.is_published;
+  q('#f-md').value       = p.instruction_md;
 
-  // Image mode
-  const modeRadio = q(`input[name="image_mode"][value="${p.image_mode}"]`);
-  if (modeRadio) { modeRadio.checked = true; applyImageMode(p.image_mode); }
+  q('#form-title').textContent   = 'Редактировать';
+  q('#submit-btn').textContent   = 'Сохранить изменения';
+
+  // Image
+  const modeR = q(`input[name="image_mode"][value="${p.image_mode}"]`);
+  if (modeR) { modeR.checked = true; applyImageMode(p.image_mode); }
   if (p.image_mode === 'url' && q('#image_url_input')) {
     q('#image_url_input').value = p.image_url;
   }
   if (p.image_mode === 'upload' && p.image_path) {
     const wrap = q('#existing-image-wrap');
-    const nameEl = q('#existing-image-name');
-    if (wrap && nameEl) {
-      nameEl.textContent = p.image_path.split('/').pop();
-      wrap.style.display = 'block';
+    const name = q('#existing-image-name');
+    if (wrap && name) {
+      name.textContent = p.image_path.split('/').pop();
+      wrap.style.display = 'flex';
     }
   }
 
   // Actions
-  p.actions.forEach(a => {
-    addActionRow({
-      kind: a.kind,
-      label: a.label,
-      url: a.url,
-      existingFile: a.file_path,
-      existingFileName: a.file_name,
-      isPrimary: a.is_primary,
-    });
-  });
+  p.actions.forEach(a => addActionRow({
+    kind: a.kind, label: a.label, url: a.url,
+    existingFile: a.file_path, existingFileName: a.file_name,
+    isPrimary: a.is_primary,
+  }));
 
-  // Resize textareas after fill
   qa('textarea.auto-resize').forEach(autoResize);
 }
