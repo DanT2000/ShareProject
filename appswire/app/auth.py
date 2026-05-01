@@ -3,8 +3,10 @@ import hashlib
 import hmac
 import secrets
 from datetime import datetime
+from typing import Optional
 
 from fastapi import Request, HTTPException
+from fastapi.responses import Response
 from itsdangerous import URLSafeSerializer, BadSignature
 from sqlalchemy.orm import Session
 
@@ -16,7 +18,9 @@ HASH_ITERATIONS = 260_000
 SESSION_COOKIE_NAME = "appswire_admin"
 
 
-def get_setting(db: Session, key: str, default: str | None = None) -> str | None:
+# ---------------- Settings ----------------
+
+def get_setting(db: Session, key: str, default: Optional[str] = None) -> Optional[str]:
     setting = db.query(Setting).filter(Setting.key == key).first()
     if setting:
         return setting.value
@@ -26,15 +30,17 @@ def get_setting(db: Session, key: str, default: str | None = None) -> str | None
 def set_setting(db: Session, key: str, value: str) -> Setting:
     setting = db.query(Setting).filter(Setting.key == key).first()
 
+    now = datetime.utcnow()
+
     if setting:
         setting.value = value
-        setting.updated_at = datetime.utcnow()
+        setting.updated_at = now
     else:
         setting = Setting(
             key=key,
             value=value,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=now,
+            updated_at=now,
         )
         db.add(setting)
 
@@ -53,6 +59,8 @@ def get_or_create_secret_key(db: Session) -> str:
     set_setting(db, "secret_key", secret_key)
     return secret_key
 
+
+# ---------------- Password hashing ----------------
 
 def hash_password(password: str) -> str:
     if not password:
@@ -97,8 +105,15 @@ def verify_password(password: str, stored_hash: str) -> bool:
         return False
 
 
-def get_admin_user(db: Session) -> AdminUser | None:
+# ---------------- Admin user ----------------
+
+def get_admin_user(db: Session) -> Optional[AdminUser]:
     return db.query(AdminUser).order_by(AdminUser.id.asc()).first()
+
+
+# Compatibility alias for current main.py
+def get_admin(db: Session) -> Optional[AdminUser]:
+    return get_admin_user(db)
 
 
 def admin_exists(db: Session) -> bool:
@@ -109,10 +124,12 @@ def create_admin(db: Session, password: str) -> AdminUser:
     if admin_exists(db):
         raise HTTPException(status_code=400, detail="Admin user already exists")
 
+    now = datetime.utcnow()
+
     user = AdminUser(
         password_hash=hash_password(password),
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=now,
+        updated_at=now,
     )
 
     db.add(user)
@@ -122,7 +139,7 @@ def create_admin(db: Session, password: str) -> AdminUser:
     return user
 
 
-def authenticate_admin(db: Session, password: str) -> AdminUser | None:
+def authenticate_admin(db: Session, password: str) -> Optional[AdminUser]:
     user = get_admin_user(db)
 
     if not user:
@@ -134,55 +151,89 @@ def authenticate_admin(db: Session, password: str) -> AdminUser | None:
     return user
 
 
-def get_serializer(db: Session) -> URLSafeSerializer:
-    secret_key = get_or_create_secret_key(db)
+# Compatibility alias, на случай если main.py вызывает auth.check_password(...)
+def check_password(password: str, stored_hash: str) -> bool:
+    return verify_password(password, stored_hash)
+
+
+# ---------------- Sessions ----------------
+
+def _serializer(secret_key: str) -> URLSafeSerializer:
     return URLSafeSerializer(secret_key, salt="appswire-admin-session")
 
 
-def create_session_token(db: Session, user: AdminUser) -> str:
-    serializer = get_serializer(db)
+def create_session_token(user_id: int, secret_key: str) -> str:
+    serializer = _serializer(secret_key)
 
     return serializer.dumps(
         {
-            "admin_id": user.id,
+            "user_id": user_id,
             "type": "admin",
         }
     )
 
 
-def verify_session_token(db: Session, token: str | None) -> bool:
+def read_session_token(token: Optional[str], secret_key: str) -> Optional[int]:
     if not token:
-        return False
+        return None
 
-    serializer = get_serializer(db)
+    serializer = _serializer(secret_key)
 
     try:
         data = serializer.loads(token)
     except BadSignature:
-        return False
+        return None
 
     if data.get("type") != "admin":
+        return None
+
+    user_id = data.get("user_id")
+
+    try:
+        return int(user_id)
+    except Exception:
+        return None
+
+
+# This is what your current main.py expects:
+# auth.set_session(response, user.id, _secret())
+def set_session(response: Response, user_id: int, secret_key: str) -> None:
+    token = create_session_token(user_id, secret_key)
+
+    response.set_cookie(
+        SESSION_COOKIE_NAME,
+        token,
+        httponly=True,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 30,
+    )
+
+
+# This is what your current main.py expects:
+# auth.get_session_user(request, _secret())
+def get_session_user(request: Request, secret_key: str) -> Optional[int]:
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    return read_session_token(token, secret_key)
+
+
+def clear_session(response: Response) -> None:
+    response.delete_cookie(SESSION_COOKIE_NAME)
+
+
+def is_admin_request(request: Request, db: Session, secret_key: Optional[str] = None) -> bool:
+    if secret_key is None:
+        secret_key = get_or_create_secret_key(db)
+
+    user_id = get_session_user(request, secret_key)
+
+    if not user_id:
         return False
 
-    admin_id = data.get("admin_id")
-
-    if not admin_id:
-        return False
-
-    user = db.query(AdminUser).filter(AdminUser.id == admin_id).first()
+    user = db.query(AdminUser).filter(AdminUser.id == user_id).first()
 
     return user is not None
 
 
-def is_admin_request(request: Request, db: Session) -> bool:
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    return verify_session_token(db, token)
-
-
-def check_admin(request: Request, db: Session):
-    if not is_admin_request(request, db):
+def check_admin(request: Request, db: Session, secret_key: Optional[str] = None) -> None:
+    if not is_admin_request(request, db, secret_key):
         raise HTTPException(status_code=403, detail="Not authorized")
-    
-
-def get_admin(db: Session) -> AdminUser | None:
-    return get_admin_user(db)
