@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ project.title }} — Инструкция | {{ app_name }}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+  </div>
+
+  <header class="instruction-header">
+    <div class="header-inner">
+      <a href="/" class="back-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        {{ app_name }}
+      </a>
+      <div class="instruction-meta">
+        <span class="instruction-project">{{ project.title }}</span>
+        <span class="instruction-version">v{{ project.version }}</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="instruction-main">
+    <div class="instruction-card">
+      <h1 class="instruction-title">{{ project.title }}</h1>
+      <div class="markdown-body">
+        {{ content_html | safe }}
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <a href="/" class="footer-admin-link">← Назад к проектам</a>
+  </footer>
+</body>
+</html>

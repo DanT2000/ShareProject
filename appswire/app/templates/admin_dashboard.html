@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — {{ app_name }}</title>
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body class="dashboard-page">
+
+  <header class="dash-header">
+    <div class="dash-header-inner">
+      <div class="dash-logo">
+        <svg viewBox="0 0 32 32" fill="none" width="32" height="32">
+          <rect width="32" height="32" rx="8" fill="url(#dlg)"/>
+          <path d="M8 22L16 10L24 22" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <path d="M11 18H21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <defs>
+            <linearGradient id="dlg" x1="0" y1="0" x2="32" y2="32">
+              <stop offset="0%" stop-color="#6366f1"/>
+              <stop offset="100%" stop-color="#8b5cf6"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span>{{ app_name }} Admin</span>
+      </div>
+      <div class="dash-header-actions">
+        <a href="/" target="_blank" class="btn-dash btn-dash-ghost">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+          Сайт
+        </a>
+        <a href="/admin/logout" class="btn-dash btn-dash-danger">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          Выйти
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <div class="dash-layout">
+
+    <!-- ── LEFT: Form ─────────────────────────────────────────── -->
+    <aside class="dash-sidebar">
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title" id="form-title">Новый проект</h2>
+          <button type="button" id="new-project-btn" class="btn-dash btn-dash-ghost btn-sm">
+            New
+          </button>
+        </div>
+
+        <form id="project-form" method="post" action="/admin/save" enctype="multipart/form-data">
+          <input type="hidden" name="project_id" id="project_id" value="0">
+
+          <!-- Title -->
+          <div class="field-group">
+            <label for="f-title">Название <span class="req">*</span></label>
+            <input type="text" id="f-title" name="title" placeholder="Название проекта" required>
+          </div>
+
+          <!-- Description -->
+          <div class="field-group">
+            <label for="f-desc">Описание <span class="req">*</span></label>
+            <textarea id="f-desc" name="description" class="auto-resize" rows="3"
+                      placeholder="Краткое описание проекта" required></textarea>
+          </div>
+
+          <!-- Version + Sort -->
+          <div class="field-row">
+            <div class="field-group">
+              <label for="f-ver">Версия</label>
+              <input type="text" id="f-ver" name="version" value="1.0.0" placeholder="1.0.0">
+            </div>
+            <div class="field-group">
+              <label for="f-sort">Порядок</label>
+              <input type="number" id="f-sort" name="sort_order" value="0" min="0">
+            </div>
+          </div>
+
+          <!-- Published -->
+          <div class="field-group field-check">
+            <label class="check-label">
+              <input type="checkbox" name="is_published" id="f-pub" checked>
+              <span>Опубликовать</span>
+            </label>
+          </div>
+
+          <!-- Image -->
+          <div class="field-group">
+            <label>Изображение</label>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="image_mode" value="none" checked> Нет
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="image_mode" value="url"> URL
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="image_mode" value="upload"> Загрузить
+              </label>
+            </div>
+            <div id="image-url-field" class="image-sub-field" style="display:none">
+              <input type="url" id="image_url_input" name="image_url_input"
+                     placeholder="https://example.com/image.png">
+            </div>
+            <div id="image-upload-field" class="image-sub-field" style="display:none">
+              <div id="existing-image-wrap" style="display:none">
+                <span class="existing-file-name" id="existing-image-name"></span>
+              </div>
+              <input type="file" name="image_file" id="image_file"
+                     accept=".png,.jpg,.jpeg,.webp,.gif,.bmp,.ico">
+            </div>
+          </div>
+
+          <!-- Instruction -->
+          <div class="field-group">
+            <label for="f-md">Инструкция (Markdown)</label>
+            <textarea id="f-md" name="instruction_md" class="auto-resize md-textarea" rows="6"
+                      placeholder="# Заголовок&#10;&#10;Текст инструкции в Markdown..."></textarea>
+          </div>
+
+          <!-- Actions -->
+          <div class="field-group">
+            <div class="actions-header">
+              <label>Действия</label>
+              <button type="button" id="add-action-btn" class="btn-dash btn-dash-ghost btn-sm">
+                + Добавить
+              </button>
+            </div>
+            <div id="actions-container"></div>
+          </div>
+
+          <div class="form-footer">
+            <button type="submit" id="submit-btn" class="btn-dash btn-dash-primary btn-full">
+              Создать
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Settings panel -->
+      <div class="panel panel-settings">
+        <div class="panel-header">
+          <h2 class="panel-title">Настройки портала</h2>
+        </div>
+        <form method="post" action="/admin/settings">
+          <div class="field-group">
+            <label for="s-name">Название сайта</label>
+            <input type="text" id="s-name" name="app_name" value="{{ app_name }}">
+          </div>
+          <div class="field-group">
+            <label for="s-sub">Подзаголовок</label>
+            <input type="text" id="s-sub" name="app_subtitle" value="{{ app_subtitle }}">
+          </div>
+          <button type="submit" class="btn-dash btn-dash-ghost btn-full">Сохранить настройки</button>
+        </form>
+      </div>
+
+    </aside>
+
+    <!-- ── RIGHT: Project list ────────────────────────────────── -->
+    <main class="dash-main">
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Проекты ({{ projects | length }})</h2>
+        </div>
+
+        {% if projects %}
+        <div class="project-list">
+          {% for project in projects %}
+          <div class="project-item {% if not project.is_published %}project-item--draft{% endif %}">
+            <div class="project-item-info">
+              {% if project.image_path %}
+              <div class="project-item-thumb">
+                <img src="/media/{{ project.image_path }}" alt="">
+              </div>
+              {% elif project.image_url %}
+              <div class="project-item-thumb">
+                <img src="{{ project.image_url }}" alt="">
+              </div>
+              {% else %}
+              <div class="project-item-thumb project-item-thumb--placeholder">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
+                  <rect x="3" y="3" width="18" height="18" rx="3"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                </svg>
+              </div>
+              {% endif %}
+
+              <div class="project-item-text">
+                <div class="project-item-title">{{ project.title }}</div>
+                <div class="project-item-meta">
+                  <span class="badge-version">v{{ project.version }}</span>
+                  {% if project.is_published %}
+                  <span class="badge badge-pub">Published</span>
+                  {% else %}
+                  <span class="badge badge-draft">Draft</span>
+                  {% endif %}
+                  {% if project.actions %}
+                  <span class="badge badge-neutral">{{ project.actions | length }} action(s)</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            <div class="project-item-btns">
+              <a href="/admin?edit={{ project.id }}" class="btn-dash btn-dash-ghost btn-sm">Edit</a>
+              <form method="post" action="/admin/delete/{{ project.id }}"
+                    class="delete-project-form" style="display:inline">
+                <button type="submit" class="btn-dash btn-dash-danger btn-sm">Delete</button>
+              </form>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        {% else %}
+        <div class="list-empty">
+          <p>Проектов пока нет. Создайте первый!</p>
+        </div>
+        {% endif %}
+      </div>
+    </main>
+
+  </div><!-- /.dash-layout -->
+
+  <!-- Action row template (hidden, cloned by JS) -->
+  <template id="action-row-tpl">
+    <div class="action-row">
+      <div class="action-row-top">
+        <select name="action_kind[]" class="action-kind-select">
+          <option value="download">Download</option>
+          <option value="link">Link</option>
+        </select>
+        <input type="text" name="action_label[]" class="action-label-input"
+               placeholder="Текст кнопки">
+        <label class="primary-wrap" title="Основная кнопка">
+          <input type="radio" name="primary_index" class="primary-radio" value="0">
+          <span>Primary</span>
+        </label>
+        <button type="button" class="btn-remove-action" title="Удалить">×</button>
+      </div>
+      <div class="action-url-field action-sub">
+        <input type="url" name="action_url[]" placeholder="https://...">
+      </div>
+      <div class="action-file-field action-sub">
+        <input type="hidden" name="action_existing_file[]" value="">
+        <div class="existing-file-row" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+            <polyline points="13 2 13 9 20 9"/>
+          </svg>
+          <span class="existing-file-name"></span>
+          <label class="clear-file-label">
+            <input type="checkbox" class="clear-file-checkbox" name="action_clear_file" value="0">
+            Удалить файл
+          </label>
+        </div>
+        <input type="file" class="action-file-input">
+      </div>
+    </div>
+  </template>
+
+  <script>
+    const EDIT_PROJECT = {{ edit_project_json | safe }};
+  </script>
+  <script src="/static/admin.js"></script>
+</body>
+</html>

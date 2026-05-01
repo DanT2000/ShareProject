@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Создание администратора — {{ app_name }}</title>
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body class="auth-page">
+  <div class="auth-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+  </div>
+
+  <div class="auth-card">
+    <div class="auth-logo">
+      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" width="48" height="48">
+        <rect width="40" height="40" rx="10" fill="url(#lg2)"/>
+        <path d="M10 28 L20 12 L30 28" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <path d="M14 22 H26" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        <defs>
+          <linearGradient id="lg2" x1="0" y1="0" x2="40" y2="40">
+            <stop offset="0%" stop-color="#6366f1"/>
+            <stop offset="100%" stop-color="#8b5cf6"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <h1>{{ app_name }}</h1>
+    </div>
+
+    <h2 class="auth-title">Создание администратора</h2>
+    <p class="auth-subtitle">Это первичная настройка. Придумайте надёжный пароль для входа в панель управления.</p>
+
+    {% if errors %}
+    <div class="auth-errors">
+      {% for e in errors %}
+      <div class="auth-error">{{ e }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" action="/admin/setup" class="auth-form">
+      <div class="field-group">
+        <label for="password">Пароль администратора</label>
+        <input type="password" id="password" name="password"
+               placeholder="Минимум 8 символов" autocomplete="new-password" required>
+      </div>
+      <div class="field-group">
+        <label for="password_confirm">Повторите пароль</label>
+        <input type="password" id="password_confirm" name="password_confirm"
+               placeholder="Повторите пароль" autocomplete="new-password" required>
+      </div>
+      <button type="submit" class="auth-btn">Создать администратора</button>
+    </form>
+  </div>
+</body>
+</html>
